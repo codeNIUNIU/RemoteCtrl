@@ -4,6 +4,81 @@
 
 
 
+class CPacket {
+public:
+	CPacket():sHeader(0),sLength(0),sCmd(0),sSum(0) {}
+
+	CPacket(const CPacket& packet) {
+		sHeader = packet.sHeader;
+		sLength = packet.sLength;
+		sCmd = packet.sCmd;
+		sData = packet.sData;
+		sSum = packet.sSum;
+	}
+
+	CPacket &operator=(const CPacket& packet) {
+		if (this == &packet) {
+			return *this;
+		}
+		sHeader = packet.sHeader;
+		sLength = packet.sLength;
+		sCmd = packet.sCmd;
+		sData = packet.sData;
+		sSum = packet.sSum;
+		return *this;
+	}
+
+	CPacket(const BYTE* pData, size_t& nSize) 
+		: sHeader(0), sLength(0), sCmd(0), sSum(0) {
+		size_t i = 0;
+		for(; i < nSize; i++) {
+			if (*(WORD*)pData[i + 1] == 0xFE) {
+				sHeader = *(WORD*)pData[i + 1];
+				i += 2;
+				break;
+			}
+		}
+		if (i + 4 + 2 + 2 > nSize) {//包数据可能不全
+			nSize = 0;
+			return;
+		}
+		sLength = *(WORD*)pData[i + 1];
+		i += 4;
+		if((sLength +i) > nSize) {//包数据未完全接收
+			nSize = 0;
+			return;
+		}
+		sCmd = *(WORD*)pData[i + 1];
+		i += 2;
+		if (sLength > 4) {
+			sData.resize(sLength - 2 - 2);
+			memcpy((void*)sData.c_str(), pData + i, sLength - 4);
+			i += sLength - 4;
+		}
+		sSum = *(WORD*)pData[i + 1];
+		i += 2;
+		WORD sum = 0;
+		for(size_t j = 0; j < sData.size(); j++) {
+			sum += *(BYTE*)pData[i] & 0xFF;
+		}
+		if (sum == sSum) {
+			nSize = i;
+			return;
+		}
+		nSize = 0;
+	}
+
+	~CPacket() {};
+
+public:
+	WORD sHeader;	//包头，固定为0xFE FF
+	WORD sLength;	//包体长度（从sCmd开始到校验和结束）
+	WORD sCmd;		//命令
+	std::string sData;	//数据
+	WORD sSum;		//校验和
+};
+
+
 class CServerSocket
 {
 public:
@@ -45,20 +120,29 @@ public:
 		return true;
 	}
 
+#define MAX_PACKET_SIZE 4096
 	int DealCommand() {
 		if (m_client_sock == -1) {
 			return -1;
 		}
-		char recv_buf[1024] = "";
+		char* recv_buf = new char[MAX_PACKET_SIZE];
+		size_t index = 0;
 		while (true) {
-			int recv_len = recv(m_client_sock, recv_buf, sizeof(recv_buf), 0);
+			size_t recv_len = recv(m_client_sock, recv_buf + index, MAX_PACKET_SIZE - index, 0);
 			if (recv_len <= 0) {
 				return -1;
 			}
-			//TODO: 处理命令
-
+			index += recv_len;
+			recv_len = index;
+			m_packet = CPacket((BYTE*)recv_buf, recv_len);
+			if (recv_len > 0) {
+				memmove(recv_buf, recv_buf + recv_len, MAX_PACKET_SIZE - recv_len);
+				return m_packet.sCmd;
+			}
 		}
+		return -1;
 	}
+
 
 	bool SendData(const char* pData, size_t nSize) {
 		if (m_client_sock == -1) {
@@ -71,6 +155,7 @@ private:
 	static CServerSocket* m_instance;
 	SOCKET m_sock;
 	SOCKET m_client_sock;
+	CPacket m_packet;
 
 	CServerSocket& operator=(const CServerSocket& ss){}
 
