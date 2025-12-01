@@ -1,0 +1,16 @@
+# Visual Studio本地缓存/个人配置
+.vs/
+*.vcxproj.user
+*.aps
+
+# 编译输出目录（所有层级）
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
+
+# 编译中间文件
+*.obj
+*.pdb
+*.exe
+*.log
