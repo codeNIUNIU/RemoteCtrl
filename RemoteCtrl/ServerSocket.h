@@ -4,6 +4,76 @@
 
 
 
+class CPacket{
+public:
+	CPacket():sHead(0),sSum(0),nLenth(0),sCmd(0){}
+
+	CPacket(const CPacket& pack) {
+		sHead = pack.sHead;
+		nLenth = pack.nLenth;
+		sCmd = pack.sCmd;
+		strData = pack.strData;
+		sSum = pack.sSum;
+	}
+
+	CPacket(const BYTE* pData, size_t nSize) {
+		size_t i = 0;
+		for (; i < nSize; i++) {
+			if (*(WORD*)(pData + i) == 0xFEFF) {
+				sHead = *(WORD*)(pData + i);
+				i += 2;
+				break;
+			}
+			if (i + 4 + 2 + 2 > nSize) {
+				nSize = 0;
+				return;
+			}
+			nLenth = *(DWORD*)(pData + i);
+			i += 4;
+			if(nLenth + i > nSize) {
+				nSize = 0;
+				return;
+			}
+			sCmd = *(DWORD*)(pData + i);
+			i += 2;
+			if (nLenth > 4) {
+				strData.reserve(nLenth - 2 - 2);
+				memcpy((void*)strData.c_str(), pData + i, nLenth - 2 - 2);
+				i += nLenth - 2 - 2;
+			}
+			sSum = *(WORD*)(pData + i);
+			i += 2;
+			WORD sum = 0;
+			for (size_t j = 0; j < strData.size(); j++) {
+				sum += BYTE(strData[i]) & 0xFF;
+			}
+			if (sum == sSum) {
+				nSize = i;
+				return;
+			}
+			nSize = 0;
+		}
+	}
+
+	CPacket& operator=(const CPacket& pack) {
+		sHead = pack.sHead;
+		nLenth = pack.nLenth;
+		sCmd = pack.sCmd;
+		strData = pack.strData;
+		sSum = pack.sSum;
+		return *this;
+	}
+
+	~CPacket() {}
+
+public:
+	WORD sHead;				//包头，固定为FE FF
+	DWORD nLenth;			//包长度（从控制命令开始，到和校验结束）
+	DWORD sCmd;				//控制命令
+	std::string strData;	//包数据
+	WORD sSum;				//和校验
+};
+
 class CServerSocket
 {
 public:
@@ -45,17 +115,28 @@ public:
 		return true;
 	}
 
+#define BUFFER_SIZE 4096
 	int DealCommand() {
 		if (m_client_sock == -1) {
 			return -1;
 		}
-		char recv_buf[1024] = "";
+
+		char* buffer = new char[BUFFER_SIZE];
+		memset(buffer, 0, BUFFER_SIZE);
+		size_t index = 0;
 		while (true) {
-			int recv_len = recv(m_client_sock, recv_buf, sizeof(recv_buf), 0);
-			if (recv_len <= 0) {
+			size_t buffer_len = recv(m_client_sock, buffer + index, BUFFER_SIZE - index, 0);
+			if (buffer_len <= 0) {
 				return -1;
 			}
+			index += buffer_len;
 			//TODO: 处理命令
+			m_packet = CPacket((BYTE*)buffer, buffer_len);
+			if (buffer_len > 0) {
+				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
+				index -= buffer_len;
+				return m_packet.sCmd;
+			}
 
 		}
 	}
@@ -71,6 +152,7 @@ private:
 	static CServerSocket* m_instance;
 	SOCKET m_sock;
 	SOCKET m_client_sock;
+	CPacket m_packet;
 
 	CServerSocket& operator=(const CServerSocket& ss){}
 
