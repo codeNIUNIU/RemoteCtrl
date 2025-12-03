@@ -38,13 +38,13 @@ public:
 				break;
 			}
 		}
-		if (i + 4 + 2 + 2 > nSize) {//°üÊý¾Ý¿ÉÄÜ²»È«
+		if (i + 4 + 2 + 2 > nSize) {//ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½Ü²ï¿½È«
 			nSize = 0;
 			return;
 		}
 		sLength = *(WORD*)pData[i + 1];
 		i += 4;
-		if((sLength +i) > nSize) {//°üÊý¾ÝÎ´ÍêÈ«½ÓÊÕ
+		if((sLength +i) > nSize) {//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½
 			nSize = 0;
 			return;
 		}
@@ -71,11 +71,11 @@ public:
 	~CPacket() {};
 
 public:
-	WORD sHeader;	//°üÍ·£¬¹Ì¶¨Îª0xFE FF
-	WORD sLength;	//°üÌå³¤¶È£¨´ÓsCmd¿ªÊ¼µ½Ð£ÑéºÍ½áÊø£©
-	WORD sCmd;		//ÃüÁî
-	std::string sData;	//Êý¾Ý
-	WORD sSum;		//Ð£ÑéºÍ
+	WORD sHeader;	//ï¿½ï¿½Í·ï¿½ï¿½ï¿½Ì¶ï¿½Îª0xFE FF
+	WORD sLength;	//ï¿½ï¿½ï¿½å³¤ï¿½È£ï¿½ï¿½ï¿½sCmdï¿½ï¿½Ê¼ï¿½ï¿½Ð£ï¿½ï¿½Í½ï¿½ï¿½ï¿½ï¿½ï¿½
+	WORD sCmd;		//ï¿½ï¿½ï¿½ï¿½
+	std::string sData;	//ï¿½ï¿½ï¿½ï¿½
+	WORD sSum;		//Ð£ï¿½ï¿½ï¿½
 };
 
 
@@ -98,11 +98,11 @@ public:
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = INADDR_ANY;
 		serv_addr.sin_port = htons(9527);
-		//°ó¶¨ bind
+		//ï¿½ï¿½ bind
 		if (bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
 			return false;
 		}
-		//¼àÌý listen
+		//ï¿½ï¿½ï¿½ï¿½ listen
 		if (listen(m_sock, 1) == -1) {
 			return false;
 		}
@@ -120,29 +120,32 @@ public:
 		return true;
 	}
 
-#define MAX_PACKET_SIZE 4096
+#define BUFFER_SIZE  4096
+
 	int DealCommand() {
 		if (m_client_sock == -1) {
 			return -1;
 		}
-		char* recv_buf = new char[MAX_PACKET_SIZE];
+
+		char* buffer = new char[BUFFER_SIZE];
+		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
-			size_t recv_len = recv(m_client_sock, recv_buf + index, MAX_PACKET_SIZE - index, 0);
-			if (recv_len <= 0) {
+			size_t buffer_len = recv(m_client_sock, buffer + index, BUFFER_SIZE - index, 0);
+			if (buffer_len <= 0) {
 				return -1;
 			}
-			index += recv_len;
-			recv_len = index;
-			m_packet = CPacket((BYTE*)recv_buf, recv_len);
-			if (recv_len > 0) {
-				memmove(recv_buf, recv_buf + recv_len, MAX_PACKET_SIZE - recv_len);
+			index += buffer_len;
+			//TODO: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			m_packet = CPacket((BYTE*)buffer, buffer_len);
+			if (buffer_len > 0) {
+				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
+				index -= buffer_len;
 				return m_packet.sCmd;
 			}
-		}
-		return -1;
-	}
 
+		}
+	}
 
 	bool SendData(const char* pData, size_t nSize) {
 		if (m_client_sock == -1) {
@@ -167,7 +170,7 @@ private:
 	CServerSocket(){
 		m_client_sock = INVALID_SOCKET;
 		if (!InitSockEnv()) {
-			MessageBox(NULL,_T("³õÊ¼»¯Ì×½Ó×Ö»·¾³Ê§°Ü£¬Çë¼ì²éÍøÂçÉèÖÃ"), _T("³õÊ¼»¯Ê§°Ü"), MB_OK | MB_ICONERROR);
+			MessageBox(NULL,_T("ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½×½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"), _T("ï¿½ï¿½Ê¼ï¿½ï¿½Ê§ï¿½ï¿½"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
