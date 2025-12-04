@@ -1,12 +1,24 @@
-#pragma once
+ï»¿#pragma once
 #include "pch.h"
 #include "framework.h"
 
 
 
+//æ•°æ®åŒ…æ ¼å¼å’Œæ•°æ®æ‰“åŒ…ã€è§£åŒ…
 class CPacket{
 public:
 	CPacket():sHead(0),sSum(0),nLenth(0),sCmd(0){}
+
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+		sHead = 0xFEFF;
+		nLenth = nSize + 4;
+		sCmd = nCmd;
+		strData.resize(nSize);
+		memcpy((void*)strData.c_str(), pData, nSize);
+		for (int j = 0;j < strData.size(); ++j) {
+			sSum += BYTE(strData[j]) & 0xFF;
+		}
+	}
 
 	CPacket(const CPacket& pack) {
 		sHead = pack.sHead;
@@ -67,23 +79,26 @@ public:
 	~CPacket() {}
 
 public:
-	WORD sHead;				//°üÍ·£¬¹Ì¶¨ÎªFE FF
-	DWORD nLenth;			//°ü³¤¶È£¨´Ó¿ØÖÆÃüÁî¿ªÊ¼£¬µ½ºÍĞ£Ñé½áÊø£©
-	DWORD sCmd;				//¿ØÖÆÃüÁî
-	std::string strData;	//°üÊı¾İ
-	WORD sSum;				//ºÍĞ£Ñé
+	WORD sHead;				//åŒ…å¤´ï¼Œå›ºå®šä¸ºFE FF
+	WORD nLenth;			//åŒ…é•¿åº¦ï¼ˆä»æ§åˆ¶å‘½ä»¤å¼€å§‹ï¼Œåˆ°å’Œæ ¡éªŒç»“æŸï¼‰
+	WORD sCmd;				//æ§åˆ¶å‘½ä»¤
+	std::string strData;	//åŒ…æ•°æ®
+	WORD sSum;				//å’Œæ ¡éªŒ
 };
 
+
+//ç½‘ç»œæœåŠ¡ç±»ï¼Œå•ä¾‹æ¨¡å¼
 class CServerSocket
 {
 public:
-	static CServerSocket* GetInstance() {
+	static CServerSocket* getInstance() {
         if (m_instance == nullptr) {
 			m_instance = new CServerSocket();
         }
         return m_instance;
 	}
 
+	//åˆå§‹åŒ–ç½‘ç»œæœåŠ¡
 	bool InitSocket() {
 		if (m_sock == -1) {
 			return false;
@@ -93,11 +108,11 @@ public:
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = INADDR_ANY;
 		serv_addr.sin_port = htons(9527);
-		//°ó¶¨ bind
+		//ç»‘å®š bind
 		if (bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
 			return false;
 		}
-		//¼àÌı listen
+		//ç›‘å¬ listen
 		if (listen(m_sock, 1) == -1) {
 			return false;
 		}
@@ -131,7 +146,7 @@ public:
 				return -1;
 			}
 			index += buffer_len;
-			//TODO: ´¦ÀíÃüÁî
+			//TODO: å¤„ç†å‘½ä»¤
 			m_packet = CPacket((BYTE*)buffer, buffer_len);
 			if (buffer_len > 0) {
 				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
@@ -147,6 +162,13 @@ public:
 			return false;
 		}
 		return send(m_client_sock, pData, nSize, 0) > 0;
+	}
+
+	bool SendData(const CPacket& pack) {
+		if (m_client_sock == -1) {
+			return false;
+		}
+		return send(m_client_sock, (const char*) & pack, pack.nLenth + 6, 0) > 0;
 	}
 
 private:
@@ -165,7 +187,7 @@ private:
 	CServerSocket(){
 		m_client_sock = INVALID_SOCKET;
 		if (!InitSockEnv()) {
-			MessageBox(NULL,_T("³õÊ¼»¯Ì×½Ó×Ö»·¾³Ê§°Ü£¬Çë¼ì²éÍøÂçÉèÖÃ"), _T("³õÊ¼»¯Ê§°Ü"), MB_OK | MB_ICONERROR);
+			MessageBox(NULL,_T("åˆå§‹åŒ–å¥—æ¥å­—ç¯å¢ƒå¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œè®¾ç½®"), _T("åˆå§‹åŒ–å¤±è´¥"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
@@ -194,10 +216,11 @@ private:
 		}
 	}
 
+	//è¾…åŠ©ç±»ï¼Œç”¨äºæ„å»ºç½‘ç»œæœåŠ¡ç±»ä¸é‡Šæ”¾ç½‘ç»œæœåŠ¡ç±»èµ„æº
 	class CHelper {
 	public:
 		CHelper() {
-			CServerSocket::GetInstance();
+			CServerSocket::getInstance();
 		}
         ~CHelper() {
 			CServerSocket::realseInstance();
