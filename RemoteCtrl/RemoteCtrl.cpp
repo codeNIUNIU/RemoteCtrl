@@ -18,8 +18,23 @@ CWinApp theApp;
 
 using namespace std;
 
+void Dump(BYTE* pData, size_t nSize) {
+    std::string strOut;
+    for (size_t i = 0; i < nSize; i++) {
+        char buf[8] = "";
+        if (i > 0 && (i % 16 == 0)) {
+            strOut += "\n";
+        }
+        snprintf(buf, sizeof(buf),"%02X ", pData[i] & 0xFF);
+        strOut += buf;
+    }
+    strOut += "\n";
+
+    OutputDebugStringA(strOut.c_str());
+}
+
 //磁盘分区信息
-std::string MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26个盘符
+int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26个盘符
     std::string result;
     for(int i = 1; i < 27; i++) {
         if (_chdrive(i) == 0) { //切换到指定驱动器，如果能切换成功，说明驱动存在
@@ -30,8 +45,12 @@ std::string MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始�
         }
 	}
 
-    CServerSocket::getInstance()->SendData(CPacket(1, (BYTE*)result.c_str(), result.size()));
-    return NULL;
+    CPacket pack(1, (BYTE*)result.c_str(), result.size());
+    Dump((BYTE*)&pack, pack.nLenth + 6);
+
+    return 0;
+    //CServerSocket::getInstance()->SendData(CPacket(1, (BYTE*)result.c_str(), result.size()));
+    //return NULL;
 }
 
 int main()
@@ -73,6 +92,10 @@ int main()
       //      }
 
             //文件需求 - 观察、打开、下载、删除
+
+            //测试MakeDriverInfo函数
+            MakeDriverInfo();
+
 
         }
     }
