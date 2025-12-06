@@ -46,11 +46,10 @@ int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26�
 	}
 
     CPacket pack(1, (BYTE*)result.c_str(), result.size());
-    Dump((BYTE*)&pack, pack.nLenth + 6);
+    Dump((BYTE*)pack.Data(), pack.Size());
+    //CServerSocket::getInstance()->SendData(pack);
 
     return 0;
-    //CServerSocket::getInstance()->SendData(CPacket(1, (BYTE*)result.c_str(), result.size()));
-    //return NULL;
 }
 
 int main()
@@ -93,8 +92,14 @@ int main()
 
             //文件需求 - 观察、打开、下载、删除
 
-            //测试MakeDriverInfo函数
-            MakeDriverInfo();
+            int nCmd = 1;
+            switch (nCmd) {
+            case 1: 
+                MakeDriverInfo();//先查看磁盘分区，顺带写Dump函数
+                break;
+            }
+            
+
 
 
         }

@@ -4,19 +4,35 @@
 
 
 
+#pragma pack(push)
+#pragma pack(1)
 //数据包格式和数据打包、解包
 class CPacket{
 public:
-	CPacket():sHead(0),sSum(0),nLenth(0),sCmd(0){}
+	CPacket():sHead(0), nLenth(0), sCmd(0), sSum(0){}
+
+	//CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+	//	sHead = 0xFEFF;
+	//	nLenth = nSize + 4;
+	//	sCmd = nCmd;
+	//	strData.resize(nSize);
+	//	memcpy((void*)strData.c_str(), pData, nSize);
+	//	sSum = 0;
+	//	for (int j = 0;j < strData.size(); ++j) {
+	//		sSum += BYTE(strData[j]) & 0xFF;
+	//	}
+	//}
 
 	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
 		sHead = 0xFEFF;
-		nLenth = nSize + 4;
+		nLenth = nSize + 4; // 命令2 + 校验2
 		sCmd = nCmd;
-		strData.resize(nSize);
-		memcpy((void*)strData.c_str(), pData, nSize);
-		for (int j = 0;j < strData.size(); ++j) {
-			sSum += BYTE(strData[j]) & 0xFF;
+		strData.assign(reinterpret_cast<const char*>(pData), nSize);
+
+		// 正确计算校验和
+		sSum = 0;
+		for (size_t j = 0; j < strData.size(); ++j) {
+			sSum += static_cast<BYTE>(strData[j]);
 		}
 	}
 
@@ -76,6 +92,58 @@ public:
 		return *this;
 	}
 
+	int Size() {
+		return nLenth + 6;
+	}
+
+	//const char* Data() {
+	//	strOut.resize(nLenth + 6);
+	//	BYTE* pData = (BYTE*)strOut.c_str();
+	//	*(WORD*)pData = sHead;
+	//	pData += 2;
+	//	*(DWORD*)(pData) = nLenth;
+	//	pData += 4;
+	//	*(WORD*)pData = sCmd;
+	//	pData += 2;
+	//	memcpy(pData, strData.c_str(), strData.size());
+	//	pData += strData.size();
+	//	*(WORD*)pData = sSum;
+	//	return strData.c_str();
+	//}
+
+	const char* Data() {
+		// 计算总包大小：包头2 + 长度4 + 命令2 + 数据N + 校验2
+		const size_t totalSize = 2 + 4 + 2 + strData.size() + 2;
+		strOut.resize(totalSize);
+
+		BYTE* p = reinterpret_cast<BYTE*>(&strOut[0]);
+
+		// 使用网络字节序（大端序）写入
+		*p++ = static_cast<BYTE>(sHead >> 8);  // FE
+		*p++ = static_cast<BYTE>(sHead & 0xFF); // FF
+
+		// 写入长度（4字节大端序）
+		*p++ = static_cast<BYTE>(nLenth >> 24);
+		*p++ = static_cast<BYTE>(nLenth >> 16);
+		*p++ = static_cast<BYTE>(nLenth >> 8);
+		*p++ = static_cast<BYTE>(nLenth & 0xFF);
+
+		// 写入命令（2字节大端序）
+		*p++ = static_cast<BYTE>(sCmd >> 8);
+		*p++ = static_cast<BYTE>(sCmd & 0xFF);
+
+		// 写入数据
+		memcpy(p, strData.data(), strData.size());
+		p += strData.size();
+
+		// 写入校验和（2字节大端序）
+		*p++ = static_cast<BYTE>(sSum >> 8);
+		*p++ = static_cast<BYTE>(sSum & 0xFF);
+
+		return strOut.c_str();
+	}
+
+
 	~CPacket() {}
 
 public:
@@ -84,7 +152,9 @@ public:
 	WORD sCmd;				//控制命令
 	std::string strData;	//包数据
 	WORD sSum;				//和校验
+	std::string strOut;		//整个包的数据
 };
+#pragma pack(pop)
 
 
 //网络服务类，单例模式
@@ -164,11 +234,11 @@ public:
 		return send(m_client_sock, pData, nSize, 0) > 0;
 	}
 
-	bool SendData(const CPacket& pack) {
+	bool SendData(CPacket& pack) {
 		if (m_client_sock == -1) {
 			return false;
 		}
-		return send(m_client_sock, (const char*) & pack, pack.nLenth + 6, 0) > 0;
+		return send(m_client_sock, pack.Data(), pack.Size(), 0) > 0;
 	}
 
 private:
