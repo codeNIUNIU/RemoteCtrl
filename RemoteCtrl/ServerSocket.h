@@ -241,6 +241,15 @@ public:
 		return send(m_client_sock, pack.Data(), pack.Size(), 0) > 0;
 	}
 
+	bool GetFilePath(std::string& strPath)
+	{
+		if (m_packet.sCmd == 2) {//判断当前命令是否为处理文件的命令
+			strPath = m_packet.strData;
+			return true;
+		}
+		return false;
+	}
+
 private:
 	static CServerSocket* m_instance;
 	SOCKET m_sock;
