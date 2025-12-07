@@ -27,7 +27,11 @@ public:
 		sHead = 0xFEFF;
 		nLenth = nSize + 4; // 命令2 + 校验2
 		sCmd = nCmd;
-		strData.assign(reinterpret_cast<const char*>(pData), nSize);
+		if (nSize > 0) {
+			strData.assign(reinterpret_cast<const char*>(pData), nSize);
+		}else{
+			strData.clear();
+		}
 
 		// 正确计算校验和
 		sSum = 0;
@@ -243,7 +247,7 @@ public:
 
 	bool GetFilePath(std::string& strPath)
 	{
-		if (m_packet.sCmd == 2) {//判断当前命令是否为处理文件的命令
+		if ((m_packet.sCmd == 2) || (m_packet.sCmd == 3) || (m_packet.sCmd == 4)) {//判断当前命令是否为处理文件的命令
 			strPath = m_packet.strData;
 			return true;
 		}
