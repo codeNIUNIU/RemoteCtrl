@@ -6,6 +6,9 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "direct.h"
+#include <io.h>
+#include <list>
+#include <atlimage.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -52,8 +55,6 @@ int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26�
     return 0;
 }
 
-#include <io.h>
-#include <list>
 typedef struct file_info{
     file_info() {
         IsInvalid = FALSE;
@@ -261,6 +262,56 @@ int MouseEvent()
         OutputDebugString(_T("获取鼠标操作参数失败！！"));
         return -1;
     }
+
+    return 0;
+}
+
+//屏幕监控
+int SendScreen()
+{
+    CImage screen;
+    HDC hScreen = ::GetDC(NULL);//获取设备上下文
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);//返回值是24位RGB888   ARGB888是32位，多了透明度
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);
+    int nHeight = GetDeviceCaps(hScreen, VERTRES);
+    screen.Create(nWidth, nHeight, nBitPerPixel);//创建图像
+    BitBlt(screen.GetDC(), 0, 0, 1920, 1020, hScreen, 0, 0, SRCCOPY);
+    ReleaseDC(NULL, hScreen);
+
+    //保存到内存中
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+    if (hMem == NULL) {
+        return -1;
+    }
+    IStream* pStream = NULL;
+    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+    if (ret == S_OK) {
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        LARGE_INTEGER bg = { 0 };
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+        PBYTE pData = (PBYTE)GlobalLock(hMem);
+        SIZE_T nSize = GlobalSize(hMem);
+        CPacket pack(6, pData, nSize);
+        CServerSocket::getInstance()->SendData(pack);
+        GlobalUnlock(hMem);
+        
+    }
+
+    //screen.Save(pStream, Gdiplus::ImageFormatPNG);//sava方法的重载，可以将图片保存在数据流中
+
+    //保存为图片文件
+    //DWORD tick = GetTickCount64();
+    //screen.Save(_T("test2020.png"), Gdiplus::ImageFormatPNG);
+    //TRACE("png: %d\r\n", GetTickCount64() - tick);
+    //tick = GetTickCount64();
+    //screen.Save(_T("test2020.jpg"), Gdiplus::ImageFormatJPEG);
+    //TRACE("jpg: %d\r\n", GetTickCount64() - tick);
+
+    pStream->Release();
+    GlobalFree(hMem);
+    screen.ReleaseDC();
+
+    return 0;
 }
 
 int main()
@@ -303,7 +354,7 @@ int main()
 
             //文件需求 - 观察、打开、下载、删除
 
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd) {
             case 1: //先查看磁盘分区，顺带写Dump函数
                 MakeDriverInfo();
@@ -319,6 +370,9 @@ int main()
                 break;
             case 5: //鼠标操作
                 MouseEvent();
+                break;
+            case 6: //发送屏幕内容,本质就是给控制端发送屏幕的截图
+                SendScreen();
                 break;
 
             }
