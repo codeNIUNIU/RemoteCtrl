@@ -340,7 +340,7 @@ unsigned _stdcall threadLockDlg(void* arg)
     //限制鼠标功能
     ShowCursor(false);// 隐藏鼠标指针
     //隐藏任务栏
-    //::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+    ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
     //限制鼠标活动范围
     //dlg.GetWindowRect(rect);
     rect.left = 0;
@@ -361,12 +361,13 @@ unsigned _stdcall threadLockDlg(void* arg)
 
         }
     }
-    dlg.DestroyWindow();
+    
     ShowCursor(true);
     //ShowWindow() 是Windows API函数，用于控制窗口的显示状态
     //SW_SHOW 参数表示以正常大小显示窗口
     //前面的::表示调用全局命名空间中的函数
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);//显示任务栏
+    dlg.DestroyWindow();
 
     _endthreadex(0);
     return 0;
@@ -377,7 +378,7 @@ int LockMachine()
     if ((dlg.m_hWnd == NULL) || (dlg.m_hWnd == INVALID_HANDLE_VALUE)) {
         //_beginthread(threadLockDlg, 0, NULL);
         _beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadid);
-        TRACE("threadid=%d\r\n", threadid);
+        TRACE("\r\nthreadid=%d\r\n", threadid);
     }
     CPacket pack(7, NULL, 0);
     CServerSocket::getInstance()->SendData(pack);
@@ -393,7 +394,7 @@ int UnLockMachine()
     CServerSocket::getInstance()->SendData(pack);
 
     return 0;
-}
+}   
 
 int main()
 {
@@ -459,8 +460,8 @@ int main()
                 break;
             case 7://锁机
                 LockMachine();
-                Sleep(50);
-                LockMachine();
+                //Sleep(50);
+                //LockMachine();
                 break;
             case 8://解锁
                 UnLockMachine();
