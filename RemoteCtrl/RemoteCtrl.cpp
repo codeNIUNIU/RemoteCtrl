@@ -314,6 +314,40 @@ int SendScreen()
     return 0;
 }
 
+#include "LockInfoDialog.h"
+#include "resource.h"
+CLockInfoDialog dlg;
+//锁机
+int LockMachine()
+{
+    dlg.Create(IDD_DIALOG_INFO, NULL);
+    dlg.ShowWindow(SW_SHOW);
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        if (msg.message == WM_KEYDOWN) {
+            TRACE("msg:%08X wparam:%08X lparam:%08X\r\n", msg.message, msg.wParam, msg.lParam);
+            if (msg.wParam == 0x1B) {//按ESC退出
+                break;
+            }
+            
+        }
+    }
+    dlg.DestroyWindow();
+
+    return 0;
+}
+
+//解锁
+int UnLockMachine()
+{
+
+
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -354,7 +388,9 @@ int main()
 
             //文件需求 - 观察、打开、下载、删除
 
-            int nCmd = 6;
+            
+            
+            int nCmd = 7;
             switch (nCmd) {
             case 1: //先查看磁盘分区，顺带写Dump函数
                 MakeDriverInfo();
@@ -374,6 +410,13 @@ int main()
             case 6: //发送屏幕内容,本质就是给控制端发送屏幕的截图
                 SendScreen();
                 break;
+            case 7://锁机
+                LockMachine();
+                break;
+            case 8://解锁
+                UnLockMachine();
+                break;
+
 
             }
 
