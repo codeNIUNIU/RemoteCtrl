@@ -65,6 +65,7 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BTN_TEST, &CRemotClientDlg::OnBnClickedBtnTest)
 END_MESSAGE_MAP()
 
 
@@ -153,3 +154,15 @@ HCURSOR CRemotClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+void CRemotClientDlg::OnBnClickedBtnTest()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CClientSocket* pClient = CClientSocket::getInstance();
+	bool ret = pClient->InitSocket("127.0.0.1");//TODO 返回值的处理
+	if (!ret) {
+		AfxMessageBox("网络初始化失败！");
+	}
+	//CPacket pack;
+	//pClient->SendData(pack);
+}

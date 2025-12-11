@@ -177,23 +177,7 @@ typedef struct MouseEvent {
 }MOUSEEVENT, * PMOUSEEVENT;
 
 
-std::string GetErrorInfo(int nErrorCode)
-{
-	std::string ret;
-	LPVOID lpMsgBuf = NULL;
-    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, 
-		NULL, 
-		nErrorCode, 
-		MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT), 
-		(LPTSTR)&lpMsgBuf, 
-		0, 
-		NULL);
-	ret = (char*)lpMsgBuf;
-
-    LocalFree(lpMsgBuf);
-
-    return ret;
-}
+std::string GetErrorInfo(int nErrorCode);
 //网络服务类，单例模式
 class CClientSocket
 {
