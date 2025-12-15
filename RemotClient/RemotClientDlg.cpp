@@ -163,6 +163,9 @@ void CRemotClientDlg::OnBnClickedBtnTest()
 	if (!ret) {
 		AfxMessageBox("网络初始化失败！");
 	}
-	//CPacket pack;
-	//pClient->SendData(pack);
+	CPacket pack(1981, NULL, 0);
+	ret = pClient->SendData(pack);
+	TRACE("send ret %d\r\n", ret);
+	int cmd = pClient->DealCommand();
+	TRACE("ack: %d\r\n", cmd);
 }

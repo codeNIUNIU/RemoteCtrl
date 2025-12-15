@@ -396,6 +396,15 @@ int UnLockMachine()
     return 0;
 }   
 
+//连接测试
+int TestConnect()
+{
+    CPacket pack(1981, NULL, 0);
+    CServerSocket::getInstance()->SendData(pack);
+
+    return 0;
+}
+
 //处理命令
 int ExecuteCommand(int nCmd)
 {
@@ -423,7 +432,10 @@ int ExecuteCommand(int nCmd)
         ret = LockMachine();
         break;
     case 8://解锁
-        ret =UnLockMachine();
+        ret = UnLockMachine();
+        break;
+    case 1981:
+        ret = TestConnect();
         break;
     }
     return ret;
@@ -462,10 +474,12 @@ int main()
                     MessageBox(NULL, _T("无法正常接入用户，正在重试!"), _T("接入用户失败!"), MB_OK | MB_ICONERROR);
                     count++;
                 }
+                TRACE("AcceptClient True!\r\n");
        
                 int ret = pserver->DealCommand();
-                if (ret == 0) {
-                    ret = ExecuteCommand(pserver->GetPacket().sCmd);
+                TRACE("DealComand ret = %d\r\n", ret);
+                if (ret > 0) {
+                    ret = ExecuteCommand(ret);
                     if (ret != 0) {
                         TRACE("执行命令失败：%d ret = %d\r\n", pserver->GetPacket(), ret);
                     }
