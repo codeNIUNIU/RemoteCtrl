@@ -166,6 +166,6 @@ void CRemotClientDlg::OnBnClickedBtnTest()
 	CPacket pack(1981, NULL, 0);
 	ret = pClient->SendData(pack);
 	TRACE("send ret %d\r\n", ret);
-	int cmd = pClient->DealCommand();
-	TRACE("ack: %d\r\n", cmd);
+	int sCmd = pClient->DealCommand();
+	TRACE("ack: %d\r\n", sCmd);
 }

@@ -10,11 +10,11 @@
 //数据包格式和数据打包、解包
 class CPacket {
 public:
-	CPacket() :sHead(0), nLenth(0), sCmd(0), sSum(0) {}
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
 
 	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
 		sHead = 0xFEFF;
-		nLenth = nSize + 4;
+		nLength = nSize + 4;
 		sCmd = nCmd;
 		if (nSize > 0) {
 			strData.resize(nSize);
@@ -24,79 +24,61 @@ public:
 			strData.clear();
 		}
 		sSum = 0;
-		for (int j = 0; j < strData.size(); ++j) {
+		for (size_t j = 0; j < strData.size(); j++)
+		{
 			sSum += BYTE(strData[j]) & 0xFF;
 		}
 	}
 
-	//CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
-	//	sHead = 0xFEFF;
-	//	nLenth = nSize + 4; // 命令2 + 校验2
-	//	sCmd = nCmd;
-	//	if (nSize > 0) {
-	//		strData.assign(reinterpret_cast<const char*>(pData), nSize);
-	//	}
-	//	else {
-	//		strData.clear();
-	//	}
-
-	//	// 正确计算校验和
-	//	sSum = 0;
-	//	for (size_t j = 0; j < strData.size(); ++j) {
-	//		sSum += static_cast<BYTE>(strData[j]);
-	//	}
-	//}
-
 	CPacket(const CPacket& pack) {
 		sHead = pack.sHead;
-		nLenth = pack.nLenth;
+		nLength = pack.nLength;
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
 
-	CPacket(const BYTE* pData, size_t nSize) {
+	CPacket(const BYTE* pData, size_t& nSize) {
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
 				sHead = *(WORD*)(pData + i);
-				i += 2;
+				i += 2; //why? 防止一种特殊情况
 				break;
 			}
-			if (i + 4 + 2 + 2 > nSize) {
-				nSize = 0;
-				return;
-			}
-			nLenth = *(DWORD*)(pData + i);
-			i += 4;
-			if (nLenth + i > nSize) {
-				nSize = 0;
-				return;
-			}
-			sCmd = *(DWORD*)(pData + i);
-			i += 2;
-			if (nLenth > 4) {
-				strData.reserve(nLenth - 2 - 2);
-				memcpy((void*)strData.c_str(), pData + i, nLenth - 2 - 2);
-				i += nLenth - 2 - 2;
-			}
-			sSum = *(WORD*)(pData + i);
-			i += 2;
-			WORD sum = 0;
-			for (size_t j = 0; j < strData.size(); j++) {
-				sum += BYTE(strData[i]) & 0xFF;
-			}
-			if (sum == sSum) {
-				nSize = i;
-				return;
-			}
-			nSize = 0;
 		}
+		if (i + 4 + 2 + 2 > nSize) {//包数据可能不全，或者包头未能全部接收到
+			nSize = 0;
+			return;
+		}
+		nLength = *(DWORD*)(pData + i); i += 4;
+		if (nLength + i > nSize) { //包未完全接收到，就返回，解析失败
+			nSize = 0;
+			return;
+		}
+		sCmd = *(WORD*)(pData + i); i += 2;
+		if (nLength > 4) {
+			strData.resize(nLength - 2 - 2);
+			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
+			TRACE("strData.c_str = %s\r\n", strData.c_str());
+			i += nLength - 4;
+		}
+		sSum = *(WORD*)(pData + i); i += 2;
+		WORD sum = 0;
+		for (size_t j = 0; j < strData.size(); j++)
+		{
+			sum += BYTE(strData[j]) & 0xFF;
+		}
+		if (sum == sSum) {
+			nSize = i; //head length data
+			return;
+		}
+		nSize = 0;
 	}
 
 	CPacket& operator=(const CPacket& pack) {
 		sHead = pack.sHead;
-		nLenth = pack.nLenth;
+		nLength = pack.nLength;
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
@@ -104,63 +86,29 @@ public:
 	}
 
 	int Size() {
-		return nLenth + 6;
+		return nLength + 6;
 	}
 
 	const char* Data() {
-		strOut.resize(nLenth + 6);
+		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead;
 		pData += 2;
-		*(DWORD*)(pData) = nLenth;
+		*(DWORD*)(pData) = nLength;
 		pData += 4;
 		*(WORD*)pData = sCmd;
 		pData += 2;
 		memcpy(pData, strData.c_str(), strData.size());
 		pData += strData.size();
 		*(WORD*)pData = sSum;
-		TRACE("Client Send Data Len = %d\r\n", strData.size());
-		return strData.c_str();
+		return strOut.c_str();
 	}
-
-	//const char* Data() {
-	//	// 计算总包大小：包头2 + 长度4 + 命令2 + 数据N + 校验2
-	//	const size_t totalSize = 2 + 4 + 2 + strData.size() + 2;
-	//	strOut.resize(totalSize);
-
-	//	BYTE* p = reinterpret_cast<BYTE*>(&strOut[0]);
-
-	//	// 使用网络字节序（大端序）写入
-	//	*p++ = static_cast<BYTE>(sHead >> 8);  // FE
-	//	*p++ = static_cast<BYTE>(sHead & 0xFF); // FF
-
-	//	// 写入长度（4字节大端序）
-	//	*p++ = static_cast<BYTE>(nLenth >> 24);
-	//	*p++ = static_cast<BYTE>(nLenth >> 16);
-	//	*p++ = static_cast<BYTE>(nLenth >> 8);
-	//	*p++ = static_cast<BYTE>(nLenth & 0xFF);
-
-	//	// 写入命令（2字节大端序）
-	//	*p++ = static_cast<BYTE>(sCmd >> 8);
-	//	*p++ = static_cast<BYTE>(sCmd & 0xFF);
-
-	//	// 写入数据
-	//	memcpy(p, strData.data(), strData.size());
-	//	p += strData.size();
-
-	//	// 写入校验和（2字节大端序）
-	//	*p++ = static_cast<BYTE>(sSum >> 8);
-	//	*p++ = static_cast<BYTE>(sSum & 0xFF);
-
-	//	return strOut.c_str();
-	//}
-
 
 	~CPacket() {}
 
 public:
 	WORD sHead;				//包头，固定为FE FF
-	WORD nLenth;			//包长度（从控制命令开始，到和校验结束）
+	DWORD nLength;			//包长度（从控制命令开始，到和校验结束）
 	WORD sCmd;				//控制命令
 	std::string strData;	//包数据
 	WORD sSum;				//和校验
@@ -183,7 +131,8 @@ typedef struct MouseEvent {
 }MOUSEEVENT, * PMOUSEEVENT;
 
 
-std::string GetErrorInfo(int nErrorCode);
+std::string GetErrorInfo(int wsaErrCode);
+
 //网络服务类，单例模式
 class CClientSocket
 {
@@ -207,10 +156,8 @@ public:
 		serv_addr.sin_port = htons(9527);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("IP地址无效");
-
             return false;
 		}
-		
 		//连接
 		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
 		if (ret == -1) {
@@ -242,6 +189,7 @@ public:
 			if (buffer_len > 0) {
 				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
 				index -= buffer_len;
+				TRACE("sCmd = %d\r\n", m_packet.sCmd);
 				return m_packet.sCmd;
 			}
 		}
@@ -260,7 +208,9 @@ public:
 		if (m_sock == -1) {
 			return false;
 		}
-		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;
+
+		int ret = send(m_sock, pack.Data(), pack.Size(), 0);
+		return ret > 0;
 	}
 
 	bool GetFilePath(std::string& strPath)
