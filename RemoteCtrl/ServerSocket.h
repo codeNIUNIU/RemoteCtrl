@@ -165,6 +165,7 @@ public:
 	}
 
 	bool AcceptClient() {
+		TRACE("Enter AcceptClient!\r\n");
 		sockaddr_in cli_addr;
 		int cli_addr_size = sizeof(cli_addr);
 		m_client_sock = accept(m_sock, (sockaddr*)&cli_addr, &cli_addr_size);

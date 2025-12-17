@@ -2,6 +2,7 @@
 #include <string>
 #include "pch.h"
 #include "framework.h"
+#include <vector>
 
 
 
@@ -146,6 +147,10 @@ public:
 
 	//初始化网络服务
 	bool InitSocket(const std::string& strIPAddress ) {
+		if (m_sock != INVALID_SOCKET) {
+			CloseSocket();
+		}
+		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) {
 			return false;
 		}
@@ -174,8 +179,7 @@ public:
 		if (m_sock == -1) {
 			return -1;
 		}
-
-		char* buffer = new char[BUFFER_SIZE];
+		char* buffer = m_buffer.data();
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
@@ -236,7 +240,13 @@ public:
 		return m_packet;
 	}
 
+	void CloseSocket() {
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
+
 private:
+	std::vector<char> m_buffer;
 	static CClientSocket* m_instance;
 	SOCKET m_sock;
 	CPacket m_packet;
@@ -249,11 +259,11 @@ private:
 
 	CClientSocket() {
 		m_sock = INVALID_SOCKET;
-		if (!InitSockEnv()) {
-			//MessageBox(NULL, _T("初始化套接字环境失败，请检查网络设置"), _T("初始化失败"), MB_OK | MB_ICONERROR);
+		if (InitSockEnv() == FALSE) {
+			MessageBox(NULL, _T("初始化套接字环境失败，请检查网络设置!"), _T("网络初始化失败!"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
 
 	~CClientSocket() {

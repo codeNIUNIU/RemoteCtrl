@@ -400,7 +400,8 @@ int UnLockMachine()
 int TestConnect()
 {
     CPacket pack(1981, NULL, 0);
-    CServerSocket::getInstance()->SendData(pack);
+    int ret = CServerSocket::getInstance()->SendData(pack);
+    TRACE("Send ret = %d\r\n", ret);
 
     return 0;
 }

@@ -162,10 +162,12 @@ void CRemotClientDlg::OnBnClickedBtnTest()
 	bool ret = pClient->InitSocket("127.0.0.1");//TODO 返回值的处理
 	if (!ret) {
 		AfxMessageBox("网络初始化失败！");
+		return;
 	}
 	CPacket pack(1981, NULL, 0);
 	ret = pClient->SendData(pack);
 	TRACE("send ret %d\r\n", ret);
 	int sCmd = pClient->DealCommand();
 	TRACE("ack: %d\r\n", sCmd);
+	pClient->CloseSocket();
 }
