@@ -50,7 +50,7 @@ int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26�
 
     CPacket pack(1, (BYTE*)result.c_str(), result.size());//打包用的
     Dump((BYTE*)pack.Data(), pack.Size());
-    //CServerSocket::getInstance()->SendData(pack);
+    CServerSocket::getInstance()->SendData(pack);
 
     return 0;
 }

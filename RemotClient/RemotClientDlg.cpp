@@ -63,6 +63,25 @@ void CRemotClientDlg::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_IPAddress(pDX, IDC_IPADDRESS_SERV, m_server_address);
 	DDX_Text(pDX, IDC_EDIT_PORT, m_nPort);
+	DDX_Control(pDX, IDC_TREE_DIR, m_Tree);
+}
+
+int CRemotClientDlg::SendCommandPacket(int sCmd, BYTE* pData, size_t nLength)
+{
+	UpdateData();//把数据从界面更新到全局变量m_server_address、m_nPort中
+	CClientSocket* pClient = CClientSocket::getInstance();
+	bool ret = pClient->InitSocket(m_server_address, atoi((LPCTSTR)m_nPort));
+	if (!ret) {
+		AfxMessageBox("网络初始化失败！");
+		return -1;
+	}
+	CPacket pack(sCmd, pData, nLength);
+	ret = pClient->SendData(pack);
+	TRACE("send ret %d\r\n", ret);
+	int cCmd = pClient->DealCommand();
+	TRACE("ack: %d\r\n", cCmd);
+	pClient->CloseSocket();
+	return cCmd;
 }
 
 BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
@@ -166,23 +185,57 @@ HCURSOR CRemotClientDlg::OnQueryDragIcon()
 
 void CRemotClientDlg::OnBnClickedBtnTest()
 {
-	UpdateData();
-	CClientSocket* pClient = CClientSocket::getInstance();
-	bool ret = pClient->InitSocket(m_server_address, atoi((LPCTSTR)m_nPort));
-	if (!ret) {
-		AfxMessageBox("网络初始化失败！");
-		return;
-	}
-	CPacket pack(1981, NULL, 0);
-	ret = pClient->SendData(pack);
-	TRACE("send ret %d\r\n", ret);
-	int sCmd = pClient->DealCommand();
-	TRACE("ack: %d\r\n", sCmd);
-	pClient->CloseSocket();
+	SendCommandPacket(1981);
 }
 
 
+//void CRemotClientDlg::OnBnClickedButtonFileinfo()
+//{
+//	int ret = SendCommandPacket(1); //获取磁盘分区
+//	if (ret == -1) {
+//		AfxMessageBox(_T("命令处理失败！"));
+//		return;
+//	}
+//	CClientSocket* pClient = CClientSocket::getInstance();
+//	std::string drivers = pClient->GetPacket().strData;
+//	std::string dr;
+//	m_Tree.DeleteAllItems();
+//	for (size_t i = 0;i < drivers.size();i++) {
+//		TRACE("drivers[%d] = %c\r\n", i, drivers[i]);
+//		if (drivers[i] == ',') {
+//			dr += ':';
+//			m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+//			dr.clear();
+//			continue;
+//		}
+//		dr += drivers[i];
+//	}
+//}
+
 void CRemotClientDlg::OnBnClickedButtonFileinfo()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	int ret = SendCommandPacket(1); //获取磁盘分区
+	if (ret == -1) {
+		AfxMessageBox(_T("命令处理失败！"));
+		return;
+	}
+	CClientSocket* pClient = CClientSocket::getInstance();
+	std::string drivers = pClient->GetPacket().strData;
+	std::string dr;
+	m_Tree.DeleteAllItems();
+	for (size_t i = 0; i < drivers.size(); i++) {
+		TRACE("drivers[%d] = %c\r\n", i, drivers[i]);
+		if (drivers[i] == ',') {
+			dr += ':';
+			m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+			dr.clear();
+			continue;
+		}
+		dr += drivers[i];
+	}
+	// 处理最后一个分区（如果有）
+	if (!dr.empty()) {
+		dr += ':';
+		m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+	}
 }
