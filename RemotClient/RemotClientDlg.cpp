@@ -52,6 +52,8 @@ END_MESSAGE_MAP()
 
 CRemotClientDlg::CRemotClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTCLIENT_DIALOG, pParent)
+	, m_server_address(0)
+	, m_nPort(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -59,6 +61,8 @@ CRemotClientDlg::CRemotClientDlg(CWnd* pParent /*=nullptr*/)
 void CRemotClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_IPAddress(pDX, IDC_IPADDRESS_SERV, m_server_address);
+	DDX_Text(pDX, IDC_EDIT_PORT, m_nPort);
 }
 
 BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
@@ -66,6 +70,7 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_TEST, &CRemotClientDlg::OnBnClickedBtnTest)
+	ON_BN_CLICKED(IDC_BUTTON_FILEINFO, &CRemotClientDlg::OnBnClickedButtonFileinfo)
 END_MESSAGE_MAP()
 
 
@@ -101,6 +106,10 @@ BOOL CRemotClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	UpdateData();
+	m_server_address = 0x7F000001;
+	m_nPort = _T("9527");
+	UpdateData(FALSE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -157,9 +166,9 @@ HCURSOR CRemotClientDlg::OnQueryDragIcon()
 
 void CRemotClientDlg::OnBnClickedBtnTest()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	UpdateData();
 	CClientSocket* pClient = CClientSocket::getInstance();
-	bool ret = pClient->InitSocket("127.0.0.1");//TODO 返回值的处理
+	bool ret = pClient->InitSocket(m_server_address, atoi((LPCTSTR)m_nPort));
 	if (!ret) {
 		AfxMessageBox("网络初始化失败！");
 		return;
@@ -170,4 +179,10 @@ void CRemotClientDlg::OnBnClickedBtnTest()
 	int sCmd = pClient->DealCommand();
 	TRACE("ack: %d\r\n", sCmd);
 	pClient->CloseSocket();
+}
+
+
+void CRemotClientDlg::OnBnClickedButtonFileinfo()
+{
+	// TODO: 在此添加控件通知处理程序代码
 }
