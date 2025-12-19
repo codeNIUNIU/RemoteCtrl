@@ -55,19 +55,6 @@ int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26�
     return 0;
 }
 
-typedef struct file_info{
-    file_info() {
-        IsInvalid = FALSE;
-        IsDirectory = -1;
-        HasNext = TRUE;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    BOOL IsInvalid;//是否有效
-    BOOL IsDirectory;//是否为目录 0 否 1 是
-    BOOL HasNext;//是否还有后续文件 0 没有 1 有
-    char szFileName[256];//文件名
-}FILEINFO,*PFILEINFO;
-
 //查看指定目录下的文件
 int MakeDirectoryInfo()
 {
@@ -103,12 +90,11 @@ int MakeDirectoryInfo()
         finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
         //IsFileInfos.push_back(finfo);
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));//发送信息到控制端
         CServerSocket::getInstance()->SendData(pack);
     } while (!_findnext(hfind,&fdata));
 
-    //发送信息道控制端
-
+    //最后发送完成后通知客户端
     FILEINFO finfo;
     finfo.HasNext = FALSE;
     CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));

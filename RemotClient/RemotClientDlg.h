@@ -21,7 +21,14 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 private:
-	int SendCommandPacket(int sCmd, BYTE* pData = NULL, size_t nLength = 0);
+	//1.获取磁盘分区
+	//2.查看指定目录下的文件
+	//3.打开文件
+	//4.下载文件
+	//返回值是命令号，如果小于0 错误
+	int SendCommandPacket(int sCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
+
+	CString CRemotClientDlg::GetPath(HTREEITEM hTree);
 
 // 实现
 protected:
@@ -40,4 +47,5 @@ public:
 	CString m_nPort;
 	afx_msg void OnBnClickedButtonFileinfo();
 	CTreeCtrl m_Tree;
+	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
 };

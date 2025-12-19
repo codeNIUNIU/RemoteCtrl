@@ -66,7 +66,7 @@ void CRemotClientDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_TREE_DIR, m_Tree);
 }
 
-int CRemotClientDlg::SendCommandPacket(int sCmd, BYTE* pData, size_t nLength)
+int CRemotClientDlg::SendCommandPacket(int sCmd, bool bAutoClose, BYTE* pData, size_t nLength)
 {
 	UpdateData();//把数据从界面更新到全局变量m_server_address、m_nPort中
 	CClientSocket* pClient = CClientSocket::getInstance();
@@ -78,9 +78,13 @@ int CRemotClientDlg::SendCommandPacket(int sCmd, BYTE* pData, size_t nLength)
 	CPacket pack(sCmd, pData, nLength);
 	ret = pClient->SendData(pack);
 	TRACE("send ret %d\r\n", ret);
+
 	int cCmd = pClient->DealCommand();
 	TRACE("ack: %d\r\n", cCmd);
-	pClient->CloseSocket();
+	if (bAutoClose) {
+		pClient->CloseSocket();
+	}
+
 	return cCmd;
 }
 
@@ -90,6 +94,7 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_TEST, &CRemotClientDlg::OnBnClickedBtnTest)
 	ON_BN_CLICKED(IDC_BUTTON_FILEINFO, &CRemotClientDlg::OnBnClickedButtonFileinfo)
+	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemotClientDlg::OnNMDblclkTreeDir)
 END_MESSAGE_MAP()
 
 
@@ -238,4 +243,43 @@ void CRemotClientDlg::OnBnClickedButtonFileinfo()
 		dr += ':';
 		m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
 	}
+}
+
+//用于获取树形控件中指定节点的完整路径
+//如果树形结构是 C: -> Windows -> System32，双击 System32 节点，函数会返回 C:\Windows\System32\
+//
+CString CRemotClientDlg::GetPath(HTREEITEM hTree)
+{
+	CString strRet, strTemp;
+	do {
+		strTemp = m_Tree.GetItemText(hTree);
+		strRet = strTemp + "\\" + strRet;
+		hTree = m_Tree.GetParentItem(hTree);
+	} while (hTree != NULL);
+	return strRet;
+}
+
+//处理树形控件的双击事件，用于查看指定目录下的文件列表
+void CRemotClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	*pResult = 0;
+	CPoint pMouse;
+	GetCursorPos(&pMouse);
+	m_Tree.ScreenToClient(&pMouse);
+	HTREEITEM hTreeSelected = m_Tree.HitTest(pMouse, 0);
+	if (hTreeSelected == NULL) {
+		return;
+	}
+	CString strPath = GetPath(hTreeSelected);//获取选中节点的完整路径
+	SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+
+	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().Data();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	while (pInfo->HasNext) {
+		int cmd = pClient->DealCommand();
+		TRACE("ack: %d\r\n", cmd);
+		//TODO 
+
+	}
+	pClient->CloseSocket();
 }

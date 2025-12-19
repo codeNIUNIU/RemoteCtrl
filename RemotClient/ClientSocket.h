@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include "pch.h"
 #include "framework.h"
@@ -90,7 +90,8 @@ public:
 		return nLength + 6;
 	}
 
-	const char* Data() {
+	const char* Data() //组包，返回可以发送的数据
+	{
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead;
@@ -131,8 +132,21 @@ typedef struct MouseEvent {
 	POINT ptXY;//坐标
 }MOUSEEVENT, * PMOUSEEVENT;
 
+typedef struct file_info {
+	file_info() {
+		IsInvalid = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvalid;//是否有效
+	BOOL IsDirectory;//是否为目录 0 否 1 是
+	BOOL HasNext;//是否还有后续文件 0 没有 1 有
+	char szFileName[256];//文件名
+}FILEINFO, * PFILEINFO;
 
-std::string GetErrorInfo(int wsaErrCode);
+
+std::string GetErrorInfo(int wsaErrCode); //函数声明，在.cpp文件实现
 
 //网络服务类，单例模式
 class CClientSocket
