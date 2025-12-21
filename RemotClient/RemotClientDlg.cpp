@@ -232,7 +232,8 @@ void CRemotClientDlg::OnBnClickedButtonFileinfo()
 		TRACE("drivers[%d] = %c\r\n", i, drivers[i]);
 		if (drivers[i] == ',') {
 			dr += ':';
-			m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+			HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+			m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
 			dr.clear();
 			continue;
 		}
@@ -241,7 +242,8 @@ void CRemotClientDlg::OnBnClickedButtonFileinfo()
 	// 处理最后一个分区（如果有）
 	if (!dr.empty()) {
 		dr += ':';
-		m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+		HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+		m_Tree.InsertItem("", hTemp, TVI_LAST);
 	}
 }
 
@@ -259,6 +261,20 @@ CString CRemotClientDlg::GetPath(HTREEITEM hTree)
 	return strRet;
 }
 
+//删除树形控件中指定节点的所有直接子节点
+//用于在刷新目录列表时，避免重复显示已存在的子目录
+void CRemotClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
+{
+	HTREEITEM hSub = NULL;
+	do
+	{
+		hSub = m_Tree.GetChildItem(hTree);
+		if (hSub != NULL) {
+			m_Tree.DeleteItem(hSub);
+		}
+	} while (hSub != NULL);
+}
+
 //处理树形控件的双击事件，用于查看指定目录下的文件列表
 void CRemotClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
@@ -267,19 +283,41 @@ void CRemotClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 	GetCursorPos(&pMouse);
 	m_Tree.ScreenToClient(&pMouse);
 	HTREEITEM hTreeSelected = m_Tree.HitTest(pMouse, 0);
-	if (hTreeSelected == NULL) {
+	if (hTreeSelected == NULL) {//判断是否点击到了某个节点
 		return;
 	}
+	if (m_Tree.GetChildItem(hTreeSelected) == NULL) {//如果是文件则直接返回
+		return;
+	}
+	DeleteTreeChildrenItem(hTreeSelected);
 	CString strPath = GetPath(hTreeSelected);//获取选中节点的完整路径
-	SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 
-	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().Data();
+	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	CClientSocket* pClient = CClientSocket::getInstance();
 	while (pInfo->HasNext) {
+		TRACE("pInfo->szFileName = %s\r\n", pInfo->szFileName);
+		if (pInfo->IsDirectory) {
+			if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
+				int cmd = pClient->DealCommand();
+				TRACE("ack: %d\r\n", cmd);
+				if (cmd < 0) {
+					break;
+				}
+				pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+				continue;
+			}
+		}
+		HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+		if (pInfo->IsDirectory) {
+			m_Tree.InsertItem("", hTemp, TVI_LAST);
+		}
 		int cmd = pClient->DealCommand();
 		TRACE("ack: %d\r\n", cmd);
-		//TODO 
-
+		if (cmd < 0) {
+			break;
+		}
+		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
 	pClient->CloseSocket();
 }

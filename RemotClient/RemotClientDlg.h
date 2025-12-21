@@ -29,6 +29,7 @@ private:
 	int SendCommandPacket(int sCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 
 	CString CRemotClientDlg::GetPath(HTREEITEM hTree);
+	void DeleteTreeChildrenItem(HTREEITEM hTree);
 
 // 实现
 protected:

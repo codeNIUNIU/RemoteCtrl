@@ -58,49 +58,52 @@ int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26�
 //查看指定目录下的文件
 int MakeDirectoryInfo()
 {
-    std::string strPath;
-    //std::list<FILEINFO> IsFileInfos;
+   std::string strPath;
+   //std::list<FILEINFO> IsFileInfos;
 
-    if (CServerSocket::getInstance()->GetFilePath(strPath) == false) {
-        OutputDebugString(_T("当前的命令，不是获取文件列表，命令解析错误！！！"));
-        return -1;
-    }
-    if (_chdir(strPath.c_str()) != 0) {
-        FILEINFO finfo;
-        finfo.IsInvalid = TRUE;
-        finfo.IsDirectory = TRUE;
-        finfo.HasNext = FALSE;
-        memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
-        //IsFileInfos.push_back(finfo);
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
-        CServerSocket::getInstance()->SendData(pack);
-        OutputDebugString(_T("没有权限访问该目录！！"));
-        return -2;
-    }
-    
-    _finddata_t fdata;
-    int hfind = 0;
-    if ((hfind = _findfirst("*", &fdata)) == -1) {
-        OutputDebugString(_T("没有找到任何文件！！"));
-        return -3;
-    }
-    do {
-        FILEINFO finfo;
-        finfo.IsInvalid = FALSE;
-        finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
-        memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        //IsFileInfos.push_back(finfo);
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));//发送信息到控制端
-        CServerSocket::getInstance()->SendData(pack);
-    } while (!_findnext(hfind,&fdata));
+   if (CServerSocket::getInstance()->GetFilePath(strPath) == false) {
+       OutputDebugString(_T("当前的命令，不是获取文件列表，命令解析错误！！！"));
+       return -1;
+   }
+   if (_chdir(strPath.c_str()) != 0) {
+       FILEINFO finfo;
+       finfo.HasNext = FALSE;
+       CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+       CServerSocket::getInstance()->SendData(pack);
+       OutputDebugString(_T("没有权限访问该目录！！"));
 
-    //最后发送完成后通知客户端
-    FILEINFO finfo;
-    finfo.HasNext = FALSE;
-    CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
-    CServerSocket::getInstance()->SendData(pack);
+       return -2;
+   }
+   
+   _finddata_t fdata;
+   int hfind = 0;
+   if ((hfind = _findfirst("*", &fdata)) == -1) {
+       OutputDebugString(_T("没有找到任何文件！！"));
+       FILEINFO finfo;
+       finfo.HasNext = FALSE;
+       CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+       CServerSocket::getInstance()->SendData(pack);
+       return -3;
+   }
+   do {
+       FILEINFO finfo;
+       finfo.IsInvalid = FALSE;
+       finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
+       memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
+       CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        // TRACE("MakeDirectoryInfo: Sending file info for %s, pack size: %d\r\n", finfo.szFileName, pack.Size());
+       bool sendResult = CServerSocket::getInstance()->SendData(pack);//发送信息到控制端
+    //    TRACE("MakeDirectoryInfo: Send result: %d\r\n", sendResult);
+   } while (!_findnext(hfind,&fdata));
 
-    return 0;
+   //最后发送完成后通知客户端
+   FILEINFO finfo;
+   finfo.HasNext = FALSE;
+   CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+//    TRACE("MakeDirectoryInfo: Sending final packet, HasNext=FALSE\r\n");
+   CServerSocket::getInstance()->SendData(pack);
+
+   return 0;
 }
 
 //运行文件
@@ -318,7 +321,7 @@ unsigned _stdcall threadLockDlg(void* arg)
     rect.top = 0;
     rect.right = GetSystemMetrics(SM_CXFULLSCREEN);//获取屏幕尺寸并设置窗口为全屏
     rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-    rect.bottom *= 1.03;//增加高度，确保完全覆盖任务栏
+    rect.bottom *= LONG(rect.bottom * 1.03);//增加高度，确保完全覆盖任务栏
     TRACE("right = %d bottom = %d\r\n", rect.right, rect.bottom);
     dlg.MoveWindow(rect);
     //窗口置顶,将窗口设置为最顶层，防止其他窗口覆盖
@@ -467,9 +470,11 @@ int main()
                 TRACE("DealComand ret = %d\r\n", ret);
                 if (ret > 0) {
                     ret = ExecuteCommand(ret);
+                    TRACE("main: ExecuteCommand returned %d\r\n", ret);
                     if (ret != 0) {
                         TRACE("执行命令失败：%d ret = %d\r\n", pserver->GetPacket().sCmd, ret);
                     }
+                    TRACE("main: Closing client connection\r\n");
                     pserver->CloseClient();
                 }
             }

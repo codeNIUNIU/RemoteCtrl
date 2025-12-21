@@ -188,18 +188,21 @@ public:
 		return true;
 	}
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 4096000
 
-	int DealCommand() {
+	int DealCommand1() {
+		TRACE("m_sock = %d\r\n", m_sock);
 		if (m_sock == -1) {
 			return -1;
 		}
 		char* buffer = m_buffer.data();
-		memset(buffer, 0, BUFFER_SIZE);
+		// memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
 			size_t buffer_len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
+			TRACE("buffer_len = %d\r\n", buffer_len);
 			if (buffer_len <= 0) {
+				TRACE("recv error: %d %s \r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
 				return -1;
 			}
 			index += buffer_len;
@@ -209,6 +212,32 @@ public:
 				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
 				index -= buffer_len;
 				TRACE("sCmd = %d\r\n", m_packet.sCmd);
+				return m_packet.sCmd;
+			}
+		}
+		TRACE("DealCommand error: %d %s \r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+		return -1;
+	}
+
+	int DealCommand() {
+		if (m_sock == -1) return -1;
+		char* buffer = m_buffer.data();//TODO:多线程发送命令时可能会出现冲突
+		static size_t index = 0; //之前为非静态
+		while (true) {
+			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
+			if ((len <= 0) && (index <= 0)) {
+				return -1;
+			}
+			TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
+			//Dump((BYTE*)buffer, index);
+			index += len;
+			len = index;  
+			TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
+			m_packet = CPacket((BYTE*)buffer, len);
+			TRACE("command %d\r\n", m_packet.sCmd);
+			if (len > 0) { //为什么会跳过啊?
+				memmove(buffer, buffer + len, index - len);
+				index -= len;
 				return m_packet.sCmd;
 			}
 		}

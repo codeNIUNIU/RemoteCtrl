@@ -223,8 +223,10 @@ public:
 
 	bool SendData(const char* pData, size_t nSize) {
 		if (m_client_sock == -1) {
+			TRACE("SendData: client sock is invalid\r\n");
 			return false;
 		}
+		TRACE("SendData:%s \r\n", pData);
 		return send(m_client_sock, pData, nSize, 0) > 0;
 	}
 
