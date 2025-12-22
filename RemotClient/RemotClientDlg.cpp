@@ -101,6 +101,7 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemotClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemotClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemotClientDlg::OnRunFile)
+	ON_MESSAGE(WM_SEND_PACKET, &CRemotClientDlg::OnSendPacket)
 END_MESSAGE_MAP()
 
 
@@ -140,6 +141,9 @@ BOOL CRemotClientDlg::OnInitDialog()
 	m_server_address = 0x7F000001;
 	m_nPort = _T("9527");
 	UpdateData(FALSE);
+	//初始化状态对话框
+	m_dlgStatus.Create(IDD_DLG_STATUS, this);
+	m_dlgStatus.ShowWindow(SW_HIDE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -251,6 +255,70 @@ void CRemotClientDlg::OnBnClickedButtonFileinfo()
 		HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
 		m_Tree.InsertItem("", hTemp, TVI_LAST);
 	}
+}
+
+void CRemotClientDlg::threadEntryForDownFile(void* arg)
+{
+	CRemotClientDlg* thiz = (CRemotClientDlg*)arg;
+	thiz->threadDownFile();
+	_endthread();
+
+}
+
+void CRemotClientDlg::threadDownFile()
+{
+	int nListSelected = m_List.GetSelectionMark();//获取选中的文件项
+	CString strFile = m_List.GetItemText(nListSelected, 0);//获取选中文件项的文件名
+	//将选中的文件项的文件名添加到下载路径中
+	CFileDialog dlg(FALSE,NULL, strFile,
+		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+		NULL, this);
+	if (dlg.DoModal() == IDOK) {
+		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
+		if (pFile == NULL) {
+			AfxMessageBox(_T("本地文件创建失败或没有权限!!!"));
+			m_dlgStatus.ShowWindow(SW_HIDE);
+			EndWaitCursor();//下载完成后，隐藏等待光标
+			return;
+		}
+
+		HTREEITEM hSelected = m_Tree.GetSelectedItem();//获取选中的目录项
+		strFile = GetPath(hSelected) + strFile;//将选中的文件项的文件名添加到选中的目录项的完整路径中
+		TRACE("strFile = %s\r\n", LPCSTR(strFile));
+		CClientSocket* pClient = CClientSocket::getInstance();
+		do
+		{
+			// int ret = SendCommandPacket(4, false, (BYTE *)(LPCTSTR)strFile, strFile.GetLength());
+			int ret = SendMessage(WM_SEND_PACKET, 4 << 1 | 0, (LPARAM)(LPCSTR)strFile);
+			if (ret < 0){
+				AfxMessageBox(_T("下载文件失败"));
+				TRACE("下载文件失败，错误码：%d\r\n", ret);
+				break;
+			}
+
+			long long nLehgth = *((long long *)pClient->GetPacket().strData.c_str());
+			if (nLehgth == 0){
+				AfxMessageBox(_T("文件长度为0或无法下载"));
+				break;
+			}
+
+			long long nCount = 0;
+			while (nCount < nLehgth){
+				int ret = pClient->DealCommand();
+				if (ret < 0){
+					AfxMessageBox(_T("传输失败"));
+					TRACE("传输失败\r\n");
+					break;
+				}
+				fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
+				nCount += pClient->GetPacket().strData.size();
+			}
+		} while (false);
+		fclose(pFile);
+		pClient->CloseSocket();
+	}
+	m_dlgStatus.ShowWindow(SW_HIDE);
+	EndWaitCursor();//下载完成后，隐藏等待光标
 }
 
 void CRemotClientDlg::LoadFileInfo()
@@ -400,53 +468,13 @@ void CRemotClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 //处理文件操作菜单中的下载文件选项
 void CRemotClientDlg::OnDownloadFile()
 {
-	int nListSelected = m_List.GetSelectionMark();//获取选中的文件项
-	CString strFile = m_List.GetItemText(nListSelected, 0);//获取选中文件项的文件名
-	//将选中的文件项的文件名添加到下载路径中
-	CFileDialog dlg(FALSE,NULL, strFile,
-		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
-		NULL, this);
-	if (dlg.DoModal() == IDOK) {
-		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
-		if (pFile == NULL) {
-			AfxMessageBox(_T("本地文件创建失败或没有权限!!!"));
-			return;
-		}
-
-		HTREEITEM hSelected = m_Tree.GetSelectedItem();//获取选中的目录项
-		strFile = GetPath(hSelected) + strFile;//将选中的文件项的文件名添加到选中的目录项的完整路径中
-		TRACE("strFile = %s\r\n", LPCSTR(strFile));
-		CClientSocket* pClient = CClientSocket::getInstance();
-		do
-		{
-			int ret = SendCommandPacket(4, false, (BYTE *)(LPCTSTR)strFile, strFile.GetLength());
-			if (ret < 0){
-				AfxMessageBox(_T("下载文件失败"));
-				TRACE("下载文件失败，错误码：%d\r\n", ret);
-				break;
-			}
-
-			long long nLehgth = *((long long *)pClient->GetPacket().strData.c_str());
-			if (nLehgth == 0){
-				AfxMessageBox(_T("文件长度为0或无法下载"));
-				break;
-			}
-
-			long long nCount = 0;
-			while (nCount < nLehgth){
-				int ret = pClient->DealCommand();
-				if (ret < 0){
-					AfxMessageBox(_T("传输失败"));
-					TRACE("传输失败\r\n");
-					break;
-				}
-				fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
-				nCount += pClient->GetPacket().strData.size();
-			}
-		} while (false);
-		fclose(pFile);
-		pClient->CloseSocket();
-	}
+	////添加线程函数用于处理文件下载（大文件下载要分多次传输，不能阻塞主线程）
+	_beginthread(CRemotClientDlg::threadEntryForDownFile, 0, this);
+	BeginWaitCursor();//等待线程启动前，先显示等待光标
+	// Sleep(50);//等待线程启动
+	m_dlgStatus.m_info.SetWindowText(_T("命令正在执行中..."));
+	m_dlgStatus.ShowWindow(SW_SHOW);
+	m_dlgStatus.SetActiveWindow();
 }
 
 //处理文件操作菜单中的删除文件选项
@@ -477,4 +505,11 @@ void CRemotClientDlg::OnRunFile()
 	if (ret < 0){
 		AfxMessageBox(_T("打开文件失败"));
 	}
+}
+
+LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
+{
+	//CString strFile = (CString)wParam;
+	//int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE *)(LPCSTR)strFile, strFile.GetLength());
+	return 0;
 }
