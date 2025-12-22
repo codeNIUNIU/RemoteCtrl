@@ -98,6 +98,9 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemotClientDlg::OnNMDblclkTreeDir)
 	ON_NOTIFY(NM_CLICK, IDC_TREE_DIR, &CRemotClientDlg::OnNMClickTreeDir)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemotClientDlg::OnNMRClickListFile)
+	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemotClientDlg::OnDownloadFile)
+	ON_COMMAND(ID_DELETE_FILE, &CRemotClientDlg::OnDeleteFile)
+	ON_COMMAND(ID_RUN_FILE, &CRemotClientDlg::OnRunFile)
 END_MESSAGE_MAP()
 
 
@@ -361,4 +364,23 @@ void CRemotClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 	if (pPupup != NULL) {
 		pPupup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, ptMouse.x, ptMouse.y, this); //弹出
 	}
+}
+
+
+void CRemotClientDlg::OnDownloadFile()
+{
+	int nListSelected = m_List.GetSelectionMark();
+	m_List.GetItemText(nListSelected, 0);
+}
+
+
+void CRemotClientDlg::OnDeleteFile()
+{
+	// TODO: 在此添加命令处理程序代码
+}
+
+
+void CRemotClientDlg::OnRunFile()
+{
+	// TODO: 在此添加命令处理程序代码
 }
