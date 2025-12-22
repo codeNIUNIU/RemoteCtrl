@@ -6,6 +6,7 @@
 
 
 
+void Dump(BYTE* pData, size_t nSize);
 #pragma pack(push)
 #pragma pack(1)
 //数据包格式和数据打包、解包
@@ -13,7 +14,8 @@ class CPacket {
 public:
 	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
 
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) //打包数据
+	{
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
@@ -39,7 +41,8 @@ public:
 		sSum = pack.sSum;
 	}
 
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize) //解析包数据
+	{
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -61,7 +64,7 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
-			TRACE("strData.c_str = %s\r\n", strData.c_str());
+			// TRACE("rece:[%s]\r\n", strData.c_str() + 12);
 			i += nLength - 4;
 		}
 		sSum = *(WORD*)(pData + i); i += 2;
@@ -190,36 +193,34 @@ public:
 
 #define BUFFER_SIZE 4096000
 
-	int DealCommand1() {
-		TRACE("m_sock = %d\r\n", m_sock);
+	int DealCommand() {
+		// TRACE("m_sock = %d\r\n", m_sock);
 		if (m_sock == -1) {
 			return -1;
 		}
 		char* buffer = m_buffer.data();
-		// memset(buffer, 0, BUFFER_SIZE);
-		size_t index = 0;
+		static size_t index = 0;
 		while (true) {
 			size_t buffer_len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			TRACE("buffer_len = %d\r\n", buffer_len);
-			if (buffer_len <= 0) {
+			if ((buffer_len <= 0) && (index <= 0)) {
 				TRACE("recv error: %d %s \r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
 				return -1;
 			}
+			// TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
+			// Dump((BYTE*)buffer, index);
 			index += buffer_len;
 			buffer_len = index;
 			m_packet = CPacket((BYTE*)buffer, buffer_len);
 			if (buffer_len > 0) {
-				memmove(buffer, buffer + buffer_len, BUFFER_SIZE - buffer_len);
+				memmove(buffer, buffer + buffer_len, index - buffer_len);
 				index -= buffer_len;
-				TRACE("sCmd = %d\r\n", m_packet.sCmd);
 				return m_packet.sCmd;
 			}
 		}
-		TRACE("DealCommand error: %d %s \r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
 		return -1;
 	}
 
-	int DealCommand() {
+	int DealCommand1() {
 		if (m_sock == -1) return -1;
 		char* buffer = m_buffer.data();//TODO:多线程发送命令时可能会出现冲突
 		static size_t index = 0; //之前为非静态
@@ -228,13 +229,13 @@ public:
 			if ((len <= 0) && (index <= 0)) {
 				return -1;
 			}
-			TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
-			//Dump((BYTE*)buffer, index);
+			// TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
+			Dump((BYTE*)buffer, index);
 			index += len;
 			len = index;  
-			TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
+			// TRACE("rece len = %d(0x%08X)  index = %d(0x%08X)\r\n", len, len, index, index);
 			m_packet = CPacket((BYTE*)buffer, len);
-			TRACE("command %d\r\n", m_packet.sCmd);
+			// TRACE("command %d\r\n", m_packet.sCmd);
 			if (len > 0) { //为什么会跳过啊?
 				memmove(buffer, buffer + len, index - len);
 				index -= len;
@@ -308,6 +309,7 @@ private:
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 
 	~CClientSocket() {

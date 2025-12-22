@@ -3,7 +3,7 @@
 #include "framework.h"
 
 
-
+void Dump(BYTE* pData, size_t nSize);
 #pragma pack(push)
 #pragma pack(1)
 //数据包格式和数据打包、解包
@@ -239,7 +239,7 @@ public:
 
 	bool GetFilePath(std::string& strPath)
 	{
-		if ((m_packet.sCmd == 2) || (m_packet.sCmd == 3) || (m_packet.sCmd == 4)) {//判断当前命令是否为处理文件的命令
+		if ((m_packet.sCmd == 2) || (m_packet.sCmd == 3) || (m_packet.sCmd == 4) || (m_packet.sCmd == 9)) {//判断当前命令是否为处理文件的命令
 			strPath = m_packet.strData;
 			return true;
 		}

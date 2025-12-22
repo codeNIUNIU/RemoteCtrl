@@ -21,20 +21,6 @@ CWinApp theApp;
 
 using namespace std;
 
-void Dump(BYTE* pData, size_t nSize) {
-    std::string strOut;
-    for (size_t i = 0; i < nSize; i++) {
-        char buf[8] = "";
-        if (i > 0 && (i % 16 == 0)) {
-            strOut += "\n";
-        }
-        snprintf(buf, sizeof(buf),"%02X ", pData[i] & 0xFF);
-        strOut += buf;
-    }
-    strOut += "\n";
-
-    OutputDebugStringA(strOut.c_str());
-}
 
 //磁盘分区信息
 int MakeDriverInfo() { //1->A: 2->B: 3->C: ...Win系统盘符从1开始，共26个盘符
@@ -85,16 +71,18 @@ int MakeDirectoryInfo()
        CServerSocket::getInstance()->SendData(pack);
        return -3;
    }
+   int scount = 0;
    do {
        FILEINFO finfo;
        finfo.IsInvalid = FALSE;
        finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
        memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
+       TRACE("finfo.szFileName = %s\r\n", finfo.szFileName);
        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
-        // TRACE("MakeDirectoryInfo: Sending file info for %s, pack size: %d\r\n", finfo.szFileName, pack.Size());
        bool sendResult = CServerSocket::getInstance()->SendData(pack);//发送信息到控制端
-    //    TRACE("MakeDirectoryInfo: Send result: %d\r\n", sendResult);
+       scount++;
    } while (!_findnext(hfind,&fdata));
+    TRACE("scount = %d\r\n", scount);
 
    //最后发送完成后通知客户端
    FILEINFO finfo;
@@ -128,18 +116,18 @@ int DownloadFile()
     FILE* pFile = NULL;
     errno_t err = fopen_s(&pFile, strPath.c_str(), "rb");
         
-    if (err != 0) {
+    if (err != 0 || pFile == NULL) {
         CPacket pack(4, (BYTE*)&data, 8);
         CServerSocket::getInstance()->SendData(pack);
         return -1;
     }
-    if (pFile == NULL) {
+    if (pFile != NULL) {
         fseek(pFile, 0, SEEK_END);
         data = _ftelli64(pFile);
         CPacket head(4, (BYTE*)&data, 8);
         CServerSocket::getInstance()->SendData(head);
-        fseek(pFile, 0, SEEK_SET);
 
+        fseek(pFile, 0, SEEK_SET);
         char buffer[1024] = "";
         size_t rlen = 0;
         do {
@@ -385,6 +373,24 @@ int UnLockMachine()
     return 0;
 }   
 
+//删除文件
+int DeleteLocalFile()
+{
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    TCHAR sPath[MAX_PATH] = _T("");//创建宽字符数组用于存储转换后的文件路径
+    // mbstowcs(sPath, strPath.c_str(), strPath.size());//中文容易出现乱码
+    MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath, sizeof(sPath)/sizeof(TCHAR));//将多字节字符串转换为宽字符字符串
+    DeleteFile(sPath);
+    CPacket pack(9, NULL, 0);
+    bool ret = CServerSocket::getInstance()->SendData(pack);
+    TRACE("DeleteLocalFile ret = %d\r\n", ret);
+
+    return 0;
+}
+
+
+
 //连接测试
 int TestConnect()
 {
@@ -424,7 +430,10 @@ int ExecuteCommand(int nCmd)
     case 8://解锁
         ret = UnLockMachine();
         break;
-    case 1981:
+    case 9: //删除文件
+        ret = DeleteLocalFile();
+        break;
+    case 1981://连接测试
         ret = TestConnect();
         break;
     }

@@ -22,12 +22,19 @@ protected:
 
 private:
 	void LoadFileInfo();
+	void LoadFileCurrent();
 	CString CRemotClientDlg::GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	//1.获取磁盘分区
 	//2.查看指定目录下的文件
 	//3.打开文件
 	//4.下载文件
+	//5.删除文件
+	//6.上传文件
+	//7.锁机
+	//8.解锁
+	//9.删除文件
+	//1981.连接测试
 	//返回值是命令号，如果小于0 错误
 	int SendCommandPacket(int sCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 
