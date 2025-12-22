@@ -6,6 +6,7 @@
 #include "ClientSocket.h"
 #include "StatusDlg.h"
 
+// 自定义消息ID
 #define WM_SEND_PACKET (WM_USER + 1) //发送数据包消息
 
 // CRemotClientDlg 对话框
@@ -69,5 +70,5 @@ public:
 	afx_msg void OnDownloadFile();
 	afx_msg void OnDeleteFile();
 	afx_msg void OnRunFile();
-	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);//定义自定义消息处理函数
 };

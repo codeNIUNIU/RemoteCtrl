@@ -319,6 +319,7 @@ void CRemotClientDlg::threadDownFile()
 	}
 	m_dlgStatus.ShowWindow(SW_HIDE);
 	EndWaitCursor();//下载完成后，隐藏等待光标
+	MessageBox(_T("下载完成"), _T("完成"));
 }
 
 void CRemotClientDlg::LoadFileInfo()
@@ -474,6 +475,7 @@ void CRemotClientDlg::OnDownloadFile()
 	// Sleep(50);//等待线程启动
 	m_dlgStatus.m_info.SetWindowText(_T("命令正在执行中..."));
 	m_dlgStatus.ShowWindow(SW_SHOW);
+	m_dlgStatus.CenterWindow(this);
 	m_dlgStatus.SetActiveWindow();
 }
 
@@ -509,7 +511,7 @@ void CRemotClientDlg::OnRunFile()
 
 LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 {
-	//CString strFile = (CString)wParam;
-	//int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE *)(LPCSTR)strFile, strFile.GetLength());
-	return 0;
+	CString strFile = (LPCSTR)lParam;
+	int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE *)(LPCSTR)strFile, strFile.GetLength());
+	return ret;
 }
