@@ -260,17 +260,17 @@ int SendScreen()
     if (hMem == NULL) {
         return -1;
     }
-    IStream* pStream = NULL;
-    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+    IStream* pStream = NULL;//创建流对象
+    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);//创建流对象，将内存映射到流中
     if (ret == S_OK) {
-        screen.Save(pStream, Gdiplus::ImageFormatPNG);
-        LARGE_INTEGER bg = { 0 };
-        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-        PBYTE pData = (PBYTE)GlobalLock(hMem);
-        SIZE_T nSize = GlobalSize(hMem);
-        CPacket pack(6, pData, nSize);
-        CServerSocket::getInstance()->SendData(pack);
-        GlobalUnlock(hMem);
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);//将图像保存到流中
+        LARGE_INTEGER bg = { 0 };//设置流指针位置为0
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);//将流指针移动到流的开始位置
+        PBYTE pData = (PBYTE)GlobalLock(hMem);//将内存映射到指针中
+        SIZE_T nSize = GlobalSize(hMem);//获取内存映射的大小
+        CPacket pack(6, pData, nSize);//创建数据包，命令码为6，数据为指针pData，数据大小为nSize
+        CServerSocket::getInstance()->SendData(pack);//发送数据包
+        GlobalUnlock(hMem);//解锁内存映射
         
     }
 

@@ -7,6 +7,7 @@
 #include "RemotClient.h"
 #include "RemotClientDlg.h"
 #include "afxdialogex.h"
+#include "WatchDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -101,7 +102,9 @@ BEGIN_MESSAGE_MAP(CRemotClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemotClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemotClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemotClientDlg::OnRunFile)
-	ON_MESSAGE(WM_SEND_PACKET, &CRemotClientDlg::OnSendPacket)
+	ON_MESSAGE(WM_SEND_PACKET, &CRemotClientDlg::OnSendPacket)//注册自定义消息处理函数
+	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemotClientDlg::OnBnClickedBtnStartWatch)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -144,6 +147,7 @@ BOOL CRemotClientDlg::OnInitDialog()
 	//初始化状态对话框
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
+	m_isFull = false;
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -257,12 +261,58 @@ void CRemotClientDlg::OnBnClickedButtonFileinfo()
 	}
 }
 
+void CRemotClientDlg::threadEntryForWatchData(void* arg)
+{
+	CRemotClientDlg* thiz = (CRemotClientDlg*)arg;
+	thiz->threadWatchData();
+	_endthread();
+}
+
+void CRemotClientDlg::threadWatchData()
+{
+	CClientSocket* pClient = NULL;
+	do{
+		pClient = CClientSocket::getInstance();
+	}while(pClient == NULL);
+	for(;;){//等价于while(true)
+		CPacket pack(6,NULL,0);
+		bool ret = pClient->SendData(pack);
+		if(ret){
+			int cmd = pClient->DealCommand();
+			if(cmd == 6){
+				if(!m_isFull){//更新数据到缓冲区
+					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+					//TODO 存入CImage中
+					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);//创建全局内存对象
+					if(hMem == NULL){
+						AfxMessageBox(_T("内存不足!!"));
+						Sleep(1);//等待1ms，避免CPU占用过高
+						continue;
+					}
+					IStream* pStream = NULL;//创建流对象
+					HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);//创建流对象，将内存映射到流中
+					if (ret == S_OK) {
+						ULONG length = 0;
+						pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
+						LARGE_INTEGER bg = {0};
+						pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+						m_image.Load(pStream);//从流中加载图像
+						m_isFull = true;
+					}
+				}
+			}
+		}
+		else{
+			Sleep(1);//等待1ms，避免CPU占用过高
+		}
+	}
+}
+
 void CRemotClientDlg::threadEntryForDownFile(void* arg)
 {
 	CRemotClientDlg* thiz = (CRemotClientDlg*)arg;
 	thiz->threadDownFile();
 	_endthread();
-
 }
 
 void CRemotClientDlg::threadDownFile()
@@ -514,4 +564,21 @@ LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 	CString strFile = (LPCSTR)lParam;
 	int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE *)(LPCSTR)strFile, strFile.GetLength());
 	return ret;
+}
+
+
+void CRemotClientDlg::OnBnClickedBtnStartWatch()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	_beginthread(CRemotClientDlg::threadEntryForWatchData, 0, this);
+	CWatchDialog dlg(this);
+	dlg.DoModal();
+}
+
+
+void CRemotClientDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	CDialogEx::OnTimer(nIDEvent);
 }
