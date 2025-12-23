@@ -270,36 +270,37 @@ void CRemotClientDlg::threadEntryForWatchData(void* arg)
 
 void CRemotClientDlg::threadWatchData()
 {
+	Sleep(50);//确保线程启动后，客户端已经连接上服务器
 	CClientSocket* pClient = NULL;
 	do{
 		pClient = CClientSocket::getInstance();
 	}while(pClient == NULL);
+
+	ULONGLONG tick = GetTickCount64();
 	for(;;){//等价于while(true)
-		CPacket pack(6,NULL,0);
-		bool ret = pClient->SendData(pack);
-		if(ret){
-			int cmd = pClient->DealCommand();
-			if(cmd == 6){
-				if(!m_isFull){//更新数据到缓冲区
-					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
-					//TODO 存入CImage中
-					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);//创建全局内存对象
-					if(hMem == NULL){
-						AfxMessageBox(_T("内存不足!!"));
-						Sleep(1);//等待1ms，避免CPU占用过高
-						continue;
-					}
-					IStream* pStream = NULL;//创建流对象
-					HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);//创建流对象，将内存映射到流中
-					if (ret == S_OK) {
-						ULONG length = 0;
-						pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
-						LARGE_INTEGER bg = {0};
-						pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-						m_image.Load(pStream);//从流中加载图像
-						m_isFull = true;
-					}
+		if (!m_isFull){ 
+			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
+			if(ret == 6){
+				BYTE *pData = (BYTE *)pClient->GetPacket().strData.c_str();
+				HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0); // 创建全局内存对象
+				if (hMem == NULL){
+					AfxMessageBox(_T("内存不足!!"));
+					Sleep(1); // 等待1ms，避免CPU占用过高
+					continue;
 				}
+				IStream *pStream = NULL;								   // 创建流对象
+				HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream); // 创建流对象，将内存映射到流中
+				if (ret == S_OK){
+					ULONG length = 0;
+					pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
+					LARGE_INTEGER bg = {0};
+					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+					m_image.Load(pStream); // 从流中加载图像
+					m_isFull = true;
+				}
+			}
+			else{
+				Sleep(1);
 			}
 		}
 		else{
@@ -561,17 +562,34 @@ void CRemotClientDlg::OnRunFile()
 
 LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 {
-	CString strFile = (LPCSTR)lParam;
-	int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE *)(LPCSTR)strFile, strFile.GetLength());
+	int ret = 0;
+	int cmd = wParam >> 1;
+	switch (cmd)
+	{
+	case 4:
+		{
+			CString strFile = (LPCSTR)lParam;
+			ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+		}
+		break;
+	case 6:
+		{
+			ret = SendCommandPacket(cmd, wParam & 1);
+		}
+		break;
+	default:
+		ret = -1;
+		break;
+	}
 	return ret;
 }
 
 
 void CRemotClientDlg::OnBnClickedBtnStartWatch()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	_beginthread(CRemotClientDlg::threadEntryForWatchData, 0, this);
 	CWatchDialog dlg(this);
+	_beginthread(CRemotClientDlg::threadEntryForWatchData, 0, this);
+
 	dlg.DoModal();
 }
 
