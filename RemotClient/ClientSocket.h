@@ -164,6 +164,7 @@ public:
 
 	//初始化网络服务
 	bool InitSocket(int nIP,int nPort) {
+		TRACE("Init Client Socket!\r\n");
 		if (m_sock != INVALID_SOCKET) {
 			CloseSocket();
 		}
@@ -174,7 +175,8 @@ public:
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
-		TRACE("addr %08x  nIP %08x\r\n", inet_addr("127.0.0.1"), nIP);
+		//TRACE("addr %08x  nIP %08x\r\n", inet_addr("127.0.0.1"), nIP);
+		TRACE("addr %08x  nIP %08x\r\n", inet_addr("10.0.2.15"), nIP);
 		serv_addr.sin_addr.s_addr = htonl(nIP);
 		serv_addr.sin_port = htons(nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {

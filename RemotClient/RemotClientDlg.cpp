@@ -141,7 +141,8 @@ BOOL CRemotClientDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	UpdateData();
-	m_server_address = 0x7F000001;
+	//m_server_address = 0x7F000001;
+	m_server_address = 0xC0A8096D;
 	m_nPort = _T("9527");
 	UpdateData(FALSE);
 	//初始化状态对话框
@@ -276,8 +277,7 @@ void CRemotClientDlg::threadWatchData()
 		pClient = CClientSocket::getInstance();
 	}while(pClient == NULL);
 
-	ULONGLONG tick = GetTickCount64();
-	for(;;){//等价于while(true)
+	while(!m_isClosed){
 		if (!m_isFull){ 
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
 			if(ret == 6){
@@ -295,6 +295,9 @@ void CRemotClientDlg::threadWatchData()
 					pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
 					LARGE_INTEGER bg = {0};
 					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+					if ((HBITMAP)m_image != NULL) {
+						m_image.Destroy();
+					}
 					m_image.Load(pStream); // 从流中加载图像
 					m_isFull = true;
 				}
@@ -592,10 +595,12 @@ LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 
 void CRemotClientDlg::OnBnClickedBtnStartWatch()
 {
+	m_isClosed = false;
 	CWatchDialog dlg(this);
-	_beginthread(CRemotClientDlg::threadEntryForWatchData, 0, this);
-
+	HANDLE hThread = (HANDLE)_beginthread(CRemotClientDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
+	m_isClosed = true;
+	WaitForSingleObject(hThread, 500);
 }
 
 
