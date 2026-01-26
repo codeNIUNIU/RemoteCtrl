@@ -4,11 +4,8 @@
 //
 #define IDD_DIALOG                      5
 #define IDD_DIALOG_INFO                 5
+#define IDD_LOCKDIALOG                  101
 #define IDS_APP_TITLE                   103
-#define IDC_STATIC                      -1
-
-#define IDD_LOCKDIALOG  101
-
 
 // Next default values for new objects
 // 

@@ -308,24 +308,34 @@ unsigned _stdcall threadLockDlg(void* arg)
     CRect rect;
     rect.left = 0;
     rect.top = 0;
-    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);//获取屏幕尺寸并设置窗口为全屏
+    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);//获取屏幕尺寸并设置窗口为全屏  w1
     rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-    rect.bottom *= LONG(rect.bottom * 1.03);//增加高度，确保完全覆盖任务栏
+    rect.bottom *= LONG(rect.bottom * 1.10);//增加高度，确保完全覆盖任务栏
     TRACE("right = %d bottom = %d\r\n", rect.right, rect.bottom);
     dlg.MoveWindow(rect);
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rtText;
+        pText->GetWindowRect(rtText);
+        int nWidth = rtText.Width();//w0
+        int x = (rect.right - nWidth) / 2;
+        int nHeight = rtText.Height();
+        int y = (rect.bottom - nHeight) / 2;
+        pText->MoveWindow(x, y, rtText.Width(), rtText.Height());
+    }
     //窗口置顶,将窗口设置为最顶层，防止其他窗口覆盖
-    //dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
     //限制鼠标功能
     ShowCursor(false);// 隐藏鼠标指针
     //隐藏任务栏
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
     //限制鼠标活动范围
-    //dlg.GetWindowRect(rect);
+    dlg.GetWindowRect(rect);
     rect.left = 0;
     rect.top = 0;
     rect.right = 1;
     rect.bottom = 1;
-    ClipCursor(rect);
+    ClipCursor(rect);//限制鼠标范围
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {//监听事件
@@ -340,11 +350,12 @@ unsigned _stdcall threadLockDlg(void* arg)
         }
     }
     
-    ShowCursor(true);
+    ClipCursor(NULL);//限制鼠标传入为NULL就表示不限制
+    ShowCursor(true);//恢复鼠标
     //ShowWindow() 是Windows API函数，用于控制窗口的显示状态
     //SW_SHOW 参数表示以正常大小显示窗口
     //前面的::表示调用全局命名空间中的函数
-    ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);//显示任务栏
+    ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);//恢复任务栏
     dlg.DestroyWindow();
 
     _endthreadex(0);
@@ -367,8 +378,8 @@ int LockMachine()
 int UnLockMachine()
 {
     //向锁机线程发送退出消息
-    PostThreadMessage(threadid, WM_KEYDOWN, 0, 0);
-    CPacket pack(7, NULL, 0);
+    PostThreadMessage(threadid, WM_KEYDOWN, 0x41, 0);
+    CPacket pack(8, NULL, 0);
     CServerSocket::getInstance()->SendData(pack);
 
     return 0;

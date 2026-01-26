@@ -142,7 +142,7 @@ BOOL CRemotClientDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	UpdateData();
 	//m_server_address = 0x7F000001;
-	m_server_address = 0xC0A8096D;
+	m_server_address = 0xC0A8F9B2;
 	m_nPort = _T("9527");
 	UpdateData(FALSE);
 	//初始化状态对话框
@@ -581,6 +581,8 @@ LRESULT CRemotClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case 6:
+	case 7:
+	case 8:
 		{
 			ret = SendCommandPacket(cmd, wParam & 1);
 		}
